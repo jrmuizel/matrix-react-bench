@@ -57,5 +57,7 @@ module.exports = {
         alias: {
             "$webapp": path.resolve(__dirname, 'webapp'),
         }
-    }
+    },
+
+    optimization: { minimize: false },
 };
