@@ -78,6 +78,7 @@ console.log = function() {};
 let render_i = 0;
 let render_cnt = 200;
 let results = [];
+let inShell = "drainJobQueue" in globalThis;
 
 function rerender() {
     if ((render_i % 50) === 0) {
@@ -88,7 +89,10 @@ function rerender() {
         render_i++
         let room_id = (render_i & 1) ? room2_id : room1_id;
         render_room(room_id);
-        setTimeout(rerender, 0);
+        if (!inShell) {
+            setTimeout(rerender, 0);
+        }
+        return true;
     } else {
         let timings = [];
 
@@ -103,11 +107,14 @@ function rerender() {
             old_console("Finished", di, "iterations at", res, "ms each.");
         }
 
-        // Send results to Raptor-Browsertime
-        window.sessionStorage.setItem(
-            'benchmark_results',
-            JSON.stringify({"matrix-react-bench": timings})
-        );
+        if (!inShell) {
+            // Send results to Raptor-Browsertime
+            window.sessionStorage.setItem(
+                'benchmark_results',
+                JSON.stringify({"matrix-react-bench": timings})
+            );
+        }
+        return false;
     }
 }
 
@@ -120,13 +127,14 @@ globalThis.setTimeout = function(fun, time) {
     return orig_setTimeout(fun, time);
 };
 
-let startTime = Date.now();
-setTimeout(rerender, 0);
 
 // In jsshell, drain the job/promise queue and render to console instead
-if ("drainJobQueue" in globalThis) {
+if (inShell) {
     console.log = old_console;
-    render_room(room1_id);
-    drainJobQueue();
-    DumpDOMTree(target);
+    while (rerender()) {
+        drainJobQueue();
+    }
+} else {
+    let startTime = Date.now();
+    setTimeout(rerender, 0);
 }
